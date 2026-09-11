@@ -1,0 +1,32 @@
+{
+  "runtime": "Net100",
+  "defaultVariables": null,
+  "documentGenerator": {
+    "fromDocument": {
+      "json": null,
+      "url": "../api-spec/openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "jsonLibrary": "SystemTextJson",
+      "controllerStyle": "abstract",
+      "controllerTarget": "AspNetCore",
+      "className": "Auth",
+      "generateDtoTypes": false,
+      "generateResponseClasses": false,
+      "includedOperationIds": [
+        "login"
+      ],
+      "useCancellationToken": true,
+      "generateModelValidationAttributes": false,
+      "generateOptionalParameters": true,
+      "namespace": "MedicalAppointments.Api.Controllers.Generated.Auth",
+      "additionalNamespaceUsages": [
+        "MedicalAppointments.Application.DTOs"
+      ],
+      "output": "src/MedicalAppointments.Api/Generated/AuthControllerBase.generated.cs"
+    }
+  }
+}

@@ -1,0 +1,259 @@
+@if (medicoHorarios(); as medico) {
+  <app-horarios-medico [medico]="medico" (cerrar)="cerrarHorarios()" />
+} @else {
+  <section class="mx-auto max-w-6xl p-6">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-800">Gestión de médicos</h1>
+      <p class="mt-1 text-sm text-slate-500">Administra los médicos, consultorios físicos y su disponibilidad horaria.</p>
+    </div>
+
+    <div class="mt-6 flex gap-2 border-b border-slate-200">
+      <button
+        type="button"
+        (click)="cambiarTab('medicos')"
+        class="px-4 py-2 text-sm font-medium border-b-2 transition"
+        [class.border-blue-600]="tabActiva() === 'medicos'"
+        [class.text-blue-700]="tabActiva() === 'medicos'"
+        [class.border-transparent]="tabActiva() !== 'medicos'"
+        [class.text-slate-500]="tabActiva() !== 'medicos'"
+      >
+        Médicos
+      </button>
+      <button
+        type="button"
+        (click)="cambiarTab('consultorios')"
+        class="px-4 py-2 text-sm font-medium border-b-2 transition"
+        [class.border-blue-600]="tabActiva() === 'consultorios'"
+        [class.text-blue-700]="tabActiva() === 'consultorios'"
+        [class.border-transparent]="tabActiva() !== 'consultorios'"
+        [class.text-slate-500]="tabActiva() !== 'consultorios'"
+      >
+        Consultorios Físicos
+      </button>
+    </div>
+
+    @if (tabActiva() === 'medicos') {
+      <div class="mt-6">
+        @if (errorMedicos()) {
+          <p class="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{{ errorMedicos() }}</p>
+        }
+
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="relative w-full max-w-sm">
+            <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+              🔍
+            </span>
+            <input
+              type="text"
+              [formControl]="buscarControl"
+              placeholder="Buscar por nombre, colegiado o teléfono..."
+              class="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
+
+          <button
+            type="button"
+            (click)="abrirCrearMedico()"
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            <span aria-hidden="true">+</span>
+            Registrar Nuevo Médico
+          </button>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Nombre completo</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Especialidad</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Colegiado</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Teléfono</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
+                <th class="px-4 py-3 text-right font-semibold text-slate-600">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @if (cargandoMedicos()) {
+                @for (fila of filasEsqueleto; track $index) {
+                  <tr>
+                    <td class="px-4 py-3"><span class="block h-4 w-32 animate-pulse rounded bg-slate-200"></span></td>
+                    <td class="px-4 py-3"><span class="block h-4 w-24 animate-pulse rounded bg-slate-200"></span></td>
+                    <td class="px-4 py-3"><span class="block h-4 w-20 animate-pulse rounded bg-slate-200"></span></td>
+                    <td class="px-4 py-3"><span class="block h-4 w-24 animate-pulse rounded bg-slate-200"></span></td>
+                    <td class="px-4 py-3"><span class="block h-4 w-16 animate-pulse rounded-full bg-slate-200"></span></td>
+                    <td class="px-4 py-3 text-right"><span class="ml-auto block h-6 w-24 animate-pulse rounded bg-slate-200"></span></td>
+                  </tr>
+                }
+              } @else {
+                @for (medico of medicos(); track medico.id) {
+                  <tr>
+                    <td class="px-4 py-3 font-medium text-slate-800">{{ medico.nombreCompleto }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ medico.especialidad }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ medico.numeroColegiado }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ medico.telefono || '-' }}</td>
+                    <td class="px-4 py-3">
+                      @if (medico.activo ?? true) {
+                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                          Activo
+                        </span>
+                      } @else {
+                        <span class="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                          Inactivo
+                        </span>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          (click)="abrirHorarios(medico)"
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          title="Configurar horarios"
+                        >
+                          <span aria-hidden="true">🕐</span>
+                          Horarios
+                        </button>
+                        <button
+                          type="button"
+                          (click)="abrirEditarMedico(medico)"
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          title="Editar medico"
+                        >
+                          <span aria-hidden="true">✏️</span>
+                          Editar
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                      No hay médicos registrados todavía.
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+
+          <app-paginador
+            [currentPage]="currentPage()"
+            [pageSize]="pageSize()"
+            [totalCount]="totalCount()"
+            [totalPages]="totalPages()"
+            (paginaCambiada)="onPaginaCambiada($event)"
+          />
+        </div>
+      </div>
+    } @else {
+      <div class="mt-6">
+        @if (errorConsultorios()) {
+          <p class="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{{ errorConsultorios() }}</p>
+        }
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            (click)="abrirCrearConsultorio()"
+            class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+          >
+            <span aria-hidden="true">+</span>
+            Nuevo consultorio
+          </button>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Nombre</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Ubicación</th>
+                <th class="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
+                <th class="px-4 py-3 text-right font-semibold text-slate-600">Acciones</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              @if (cargandoConsultorios()) {
+                <tr>
+                  <td colspan="4" class="px-4 py-6 text-center text-slate-400">Cargando consultorios...</td>
+                </tr>
+              } @else {
+                @for (consultorio of consultorios(); track consultorio.id) {
+                  <tr>
+                    <td class="px-4 py-3 font-medium text-slate-800">{{ consultorio.nombre }}</td>
+                    <td class="px-4 py-3 text-slate-700">{{ consultorio.ubicacion }}</td>
+                    <td class="px-4 py-3">
+                      @if (consultorio.activo) {
+                        <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                          Activo
+                        </span>
+                      } @else {
+                        <span class="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                          Inactivo
+                        </span>
+                      }
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <div class="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          (click)="abrirEditarConsultorio(consultorio)"
+                          class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700"
+                          title="Editar consultorio"
+                        >
+                          <span aria-hidden="true">✏️</span>
+                          Editar
+                        </button>
+                        @if (consultorio.activo) {
+                          <button
+                            type="button"
+                            (click)="darDeBajaConsultorio(consultorio)"
+                            class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                            title="Dar de baja"
+                          >
+                            <span aria-hidden="true">🚫</span>
+                            Dar de baja
+                          </button>
+                        }
+                      </div>
+                    </td>
+                  </tr>
+                } @empty {
+                  <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-slate-400">
+                      No hay consultorios registrados todavía.
+                    </td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </section>
+
+  @if (mostrarFormularioMedico()) {
+    <app-medico-form
+      [medico]="medicoEditar()"
+      (cerrar)="cerrarFormularioMedico()"
+      (guardado)="onMedicoGuardado($event)"
+    />
+  }
+
+  @if (mostrarFormularioConsultorio()) {
+    <app-consultorio-form
+      [consultorio]="consultorioEditar()"
+      (cerrar)="cerrarFormularioConsultorio()"
+      (guardado)="onConsultorioGuardado($event)"
+    />
+  }
+
+  @if (mensajeExito()) {
+    <div class="fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
+      <span aria-hidden="true">✓</span>
+      {{ mensajeExito() }}
+    </div>
+  }
+}

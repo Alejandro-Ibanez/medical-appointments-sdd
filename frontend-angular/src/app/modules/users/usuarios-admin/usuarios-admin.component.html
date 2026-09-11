@@ -1,0 +1,145 @@
+<section class="mx-auto max-w-6xl p-6">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-xl font-semibold text-slate-800">Gestión de usuarios</h1>
+      <p class="mt-1 text-sm text-slate-500">Administra las cuentas de acceso del sistema.</p>
+    </div>
+    <button
+      type="button"
+      (click)="abrirCrear()"
+      class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700"
+    >
+      <span aria-hidden="true">+</span>
+      Nuevo usuario
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{{ error() }}</p>
+  }
+
+  <div class="mt-6 flex justify-start">
+    <div class="relative w-full max-w-sm">
+      <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
+        🔍
+      </span>
+      <input
+        type="text"
+        [formControl]="buscarControl"
+        placeholder="Buscar por nombre o username..."
+        class="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+      />
+    </div>
+  </div>
+
+  <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Nombre completo</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Username</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Rol</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Médico vinculado</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Estado</th>
+          <th class="px-4 py-3 text-right font-semibold text-slate-600">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        @if (cargando()) {
+          @for (fila of filasEsqueleto; track $index) {
+            <tr>
+              <td class="px-4 py-3"><span class="block h-4 w-32 animate-pulse rounded bg-slate-200"></span></td>
+              <td class="px-4 py-3"><span class="block h-4 w-24 animate-pulse rounded bg-slate-200"></span></td>
+              <td class="px-4 py-3"><span class="block h-4 w-20 animate-pulse rounded-full bg-slate-200"></span></td>
+              <td class="px-4 py-3"><span class="block h-4 w-20 animate-pulse rounded bg-slate-200"></span></td>
+              <td class="px-4 py-3"><span class="block h-4 w-16 animate-pulse rounded-full bg-slate-200"></span></td>
+              <td class="px-4 py-3 text-right"><span class="ml-auto block h-6 w-24 animate-pulse rounded bg-slate-200"></span></td>
+            </tr>
+          }
+        } @else {
+          @for (usuario of usuarios(); track usuario.id) {
+            <tr>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ usuario.nombreCompleto }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ usuario.username }}</td>
+              <td class="px-4 py-3">
+                <span
+                  class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
+                  [class.bg-violet-100]="usuario.rolNombre === 'Admin'"
+                  [class.text-violet-700]="usuario.rolNombre === 'Admin'"
+                  [class.bg-blue-100]="usuario.rolNombre === 'Medico'"
+                  [class.text-blue-700]="usuario.rolNombre === 'Medico'"
+                  [class.bg-cyan-100]="usuario.rolNombre === 'Recepcionista'"
+                  [class.text-cyan-700]="usuario.rolNombre === 'Recepcionista'"
+                >
+                  {{ usuario.rolNombre }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-slate-700">
+                @if (usuario.medicoId) {
+                  <span class="inline-flex items-center gap-1 text-emerald-700">
+                    🩺 Medico #{{ usuario.medicoId }}
+                  </span>
+                } @else {
+                  <span class="text-slate-400">-</span>
+                }
+              </td>
+              <td class="px-4 py-3">
+                @if (usuario.activo) {
+                  <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                    Activo
+                  </span>
+                } @else {
+                  <span class="inline-flex rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                    Inactivo
+                  </span>
+                }
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  (click)="alternarEstado(usuario)"
+                  [disabled]="actualizandoEstadoId() === usuario.id"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  [class.hover:border-red-300]="usuario.activo"
+                  [class.hover:text-red-700]="usuario.activo"
+                  [class.hover:border-emerald-300]="!usuario.activo"
+                  [class.hover:text-emerald-700]="!usuario.activo"
+                >
+                  {{ usuario.activo ? '🚫 Desactivar' : '✅ Activar' }}
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="px-4 py-8 text-center text-slate-400">
+                No hay usuarios registrados todavía.
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+
+    <app-paginador
+      [currentPage]="currentPage()"
+      [pageSize]="pageSize()"
+      [totalCount]="totalCount()"
+      [totalPages]="totalPages()"
+      (paginaCambiada)="onPaginaCambiada($event)"
+    />
+  </div>
+</section>
+
+@if (mostrarFormulario()) {
+  <app-usuario-form
+    (cerrar)="cerrarFormulario()"
+    (guardado)="onUsuarioGuardado($event)"
+  />
+}
+
+@if (mensajeExito()) {
+  <div class="fixed right-4 top-4 z-[60] flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
+    <span aria-hidden="true">✓</span>
+    {{ mensajeExito() }}
+  </div>
+}

@@ -1,0 +1,34 @@
+{
+  "runtime": "Net100",
+  "defaultVariables": null,
+  "documentGenerator": {
+    "fromDocument": {
+      "json": null,
+      "url": "../api-spec/openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "jsonLibrary": "SystemTextJson",
+      "controllerStyle": "abstract",
+      "controllerTarget": "AspNetCore",
+      "className": "Reportes",
+      "generateDtoTypes": false,
+      "generateResponseClasses": false,
+      "includedOperationIds": [
+        "generarReporteHistorialPdf",
+        "generarReporteAgendaMedico",
+        "generarReporteOcupacionConsultorios"
+      ],
+      "useCancellationToken": true,
+      "generateModelValidationAttributes": false,
+      "generateOptionalParameters": true,
+      "namespace": "MedicalAppointments.Api.Controllers.Generated.Reportes",
+      "additionalNamespaceUsages": [
+        "MedicalAppointments.Application.DTOs"
+      ],
+      "output": "src/MedicalAppointments.Api/Generated/ReportesControllerBase.generated.cs"
+    }
+  }
+}

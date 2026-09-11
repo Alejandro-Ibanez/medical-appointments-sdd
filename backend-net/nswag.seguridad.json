@@ -1,0 +1,35 @@
+{
+  "runtime": "Net100",
+  "defaultVariables": null,
+  "documentGenerator": {
+    "fromDocument": {
+      "json": null,
+      "url": "../api-spec/openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "jsonLibrary": "SystemTextJson",
+      "controllerStyle": "abstract",
+      "controllerTarget": "AspNetCore",
+      "className": "Seguridad",
+      "generateDtoTypes": false,
+      "generateResponseClasses": false,
+      "includedOperationIds": [
+        "listarPermisos",
+        "listarRoles",
+        "obtenerPermisosDeRol",
+        "actualizarPermisosDeRol"
+      ],
+      "useCancellationToken": true,
+      "generateModelValidationAttributes": false,
+      "generateOptionalParameters": true,
+      "namespace": "MedicalAppointments.Api.Controllers.Generated.Seguridad",
+      "additionalNamespaceUsages": [
+        "MedicalAppointments.Application.DTOs"
+      ],
+      "output": "src/MedicalAppointments.Api/Generated/SeguridadControllerBase.generated.cs"
+    }
+  }
+}

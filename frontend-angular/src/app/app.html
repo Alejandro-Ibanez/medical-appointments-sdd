@@ -1,0 +1,112 @@
+<div class="min-h-screen bg-slate-100">
+  <nav class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-6xl items-center gap-1 px-6 py-3">
+      <span class="mr-4 text-sm font-semibold text-slate-800">Citas Medicas</span>
+
+      @if (session.tienePermiso('dashboard.ver')) {
+        <a
+          routerLink="/dashboard"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Dashboard
+        </a>
+      }
+      @if (session.tienePermiso('citas.leer')) {
+        <a
+          routerLink="/calendario"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Calendario
+        </a>
+        <a
+          routerLink="/citas/buscador"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Buscador de citas
+        </a>
+      }
+      @if (session.tienePermiso('pacientes.leer')) {
+        <a
+          routerLink="/pacientes"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Pacientes
+        </a>
+      }
+      @if (session.tienePermiso('medicos.administrar', 'consultorios.administrar')) {
+        <a
+          routerLink="/medicos"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Médicos
+        </a>
+      }
+      @if (session.tienePermiso('reportes.descargar')) {
+        <a
+          routerLink="/reportes-centro"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Reportes
+        </a>
+      }
+      @if (session.tienePermiso('usuarios.administrar')) {
+        <a
+          routerLink="/usuarios"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Usuarios
+        </a>
+        <a
+          routerLink="/seguridad/permisos"
+          routerLinkActive="bg-blue-50 text-blue-700"
+          class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+        >
+          Permisos
+        </a>
+      }
+
+      <div class="ml-auto flex items-center gap-3">
+        @if (session.estaAutenticado()) {
+          <span class="text-sm text-slate-500">
+            {{ session.nombreUsuario() }}
+            <span class="ml-1 inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+              {{ session.rol() }}
+            </span>
+          </span>
+          <a
+            routerLink="/perfil/cambiar-password"
+            routerLinkActive="bg-blue-50 text-blue-700"
+            class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+            title="Cambiar contraseña"
+          >
+            🔑 Contraseña
+          </a>
+          <button
+            type="button"
+            (click)="cerrarSesion()"
+            class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+          >
+            Cerrar sesión
+          </button>
+        } @else {
+          <a
+            routerLink="/login"
+            routerLinkActive="bg-blue-50 text-blue-700"
+            class="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+          >
+            Iniciar sesión
+          </a>
+        }
+      </div>
+    </div>
+  </nav>
+
+  <router-outlet />
+</div>

@@ -1,0 +1,41 @@
+<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-semibold text-gray-800">
+        {{ esEdicion ? 'Editar consultorio' : 'Nuevo consultorio' }}
+      </h2>
+      <button type="button" class="text-gray-400 hover:text-gray-600" (click)="cancelar()">✕</button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="guardar()" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+        <input type="text" formControlName="nombre" placeholder="Consultorio 1"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Ubicación</label>
+        <input type="text" formControlName="ubicacion" placeholder="Piso 2, ala norte"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      @if (error()) {
+        <div class="rounded-md bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+          {{ error() }}
+        </div>
+      }
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button type="button" (click)="cancelar()"
+                class="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50">
+          Cancelar
+        </button>
+        <button type="submit" [disabled]="guardando()"
+                class="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          {{ guardando() ? 'Guardando...' : 'Guardar' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

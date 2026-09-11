@@ -1,0 +1,47 @@
+<div class="flex min-h-[calc(100vh-57px)] items-center justify-center bg-slate-100 p-4">
+  <div class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h1 class="text-xl font-semibold text-slate-800">Iniciar sesión</h1>
+    <p class="mt-1 text-sm text-slate-500">Accede con tu usuario y contraseña.</p>
+
+    <form [formGroup]="form" (ngSubmit)="iniciarSesion()" class="mt-6 space-y-4">
+      <div>
+        <label for="usuario" class="block text-sm font-medium text-slate-700">Usuario</label>
+        <input
+          id="usuario"
+          type="text"
+          formControlName="usuario"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+
+      <div>
+        <label for="contrasena" class="block text-sm font-medium text-slate-700">Contraseña</label>
+        <input
+          id="contrasena"
+          type="password"
+          formControlName="contrasena"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+
+      @if (error()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error() }}</p>
+      }
+
+      <button
+        type="submit"
+        [disabled]="cargando()"
+        class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {{ cargando() ? 'Ingresando...' : 'Ingresar' }}
+      </button>
+    </form>
+
+    <div class="mt-6 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+      <p class="font-medium text-slate-600">Cuentas de prueba:</p>
+      <p>admin / admin123 (Admin)</p>
+      <p>medico1 / medico123 (Medico)</p>
+      <p>recepcionista1 / recepcionista123 (Recepcionista)</p>
+    </div>
+  </div>
+</div>

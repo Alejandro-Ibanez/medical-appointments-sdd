@@ -1,0 +1,121 @@
+<section class="mx-auto max-w-5xl p-6">
+  <div class="flex items-center gap-3">
+    <button
+      type="button"
+      (click)="volver()"
+      class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 transition hover:bg-slate-50"
+    >
+      <span aria-hidden="true">←</span>
+      Volver
+    </button>
+    <div>
+      <h1 class="text-xl font-semibold text-slate-800">
+        Disponibilidad horaria — {{ medico.nombreCompleto }}
+      </h1>
+      <p class="mt-1 text-sm text-slate-500">{{ medico.especialidad }}</p>
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="mt-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{{ error() }}</p>
+  }
+
+  <div class="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-slate-200 text-sm">
+      <thead class="bg-slate-50">
+        <tr>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Día</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Hora inicio</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Hora fin</th>
+          <th class="px-4 py-3 text-left font-semibold text-slate-600">Consultorio</th>
+          <th class="px-4 py-3 text-right font-semibold text-slate-600">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        @if (cargando()) {
+          <tr>
+            <td colspan="5" class="px-4 py-6 text-center text-slate-400">Cargando horarios...</td>
+          </tr>
+        } @else {
+          @for (horario of horarios(); track horario.id) {
+            <tr>
+              <td class="px-4 py-3 font-medium text-slate-800">{{ horario.diaSemana }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ horario.horaInicio }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ horario.horaFin }}</td>
+              <td class="px-4 py-3 text-slate-700">{{ horario.consultorio.nombre }}</td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  (click)="eliminarHorario(horario)"
+                  class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+                  title="Eliminar horario"
+                >
+                  <span aria-hidden="true">🗑️</span>
+                  Eliminar
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5" class="px-4 py-8 text-center text-slate-400">
+                Este medico aun no tiene horarios asignados.
+              </td>
+            </tr>
+          }
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <h2 class="text-sm font-semibold text-slate-700">Agregar nuevo horario</h2>
+
+    <form [formGroup]="form" (ngSubmit)="agregarHorario()" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Día</label>
+        <select formControlName="diaSemana"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          @for (dia of diasSemana; track dia) {
+            <option [value]="dia">{{ dia }}</option>
+          }
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Hora inicio</label>
+        <input type="time" formControlName="horaInicio"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Hora fin</label>
+        <input type="time" formControlName="horaFin"
+               class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Consultorio</label>
+        <select formControlName="consultorioId"
+                class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option [value]="0" disabled>Selecciona un consultorio</option>
+          @for (consultorio of consultoriosActivos(); track consultorio.id) {
+            <option [value]="consultorio.id">{{ consultorio.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      @if (errorFormulario()) {
+        <div class="sm:col-span-4 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">
+          {{ errorFormulario() }}
+        </div>
+      }
+
+      <div class="sm:col-span-4 flex justify-end">
+        <button type="submit" [disabled]="guardando()"
+                class="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+          {{ guardando() ? 'Guardando...' : 'Agregar horario' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

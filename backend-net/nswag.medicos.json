@@ -1,0 +1,38 @@
+{
+  "runtime": "Net100",
+  "defaultVariables": null,
+  "documentGenerator": {
+    "fromDocument": {
+      "json": null,
+      "url": "../api-spec/openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "jsonLibrary": "SystemTextJson",
+      "controllerStyle": "abstract",
+      "controllerTarget": "AspNetCore",
+      "className": "Medicos",
+      "generateDtoTypes": false,
+      "generateResponseClasses": false,
+      "includedOperationIds": [
+        "listarMedicos",
+        "crearMedico",
+        "actualizarMedico",
+        "autocompletarMedicos",
+        "obtenerHorariosMedico",
+        "agregarHorarioMedico",
+        "eliminarHorarioAtencion"
+      ],
+      "useCancellationToken": true,
+      "generateModelValidationAttributes": false,
+      "generateOptionalParameters": true,
+      "namespace": "MedicalAppointments.Api.Controllers.Generated.Medicos",
+      "additionalNamespaceUsages": [
+        "MedicalAppointments.Application.DTOs"
+      ],
+      "output": "src/MedicalAppointments.Api/Generated/MedicosControllerBase.generated.cs"
+    }
+  }
+}

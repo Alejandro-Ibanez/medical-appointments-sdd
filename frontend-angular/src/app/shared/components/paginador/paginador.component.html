@@ -1,0 +1,50 @@
+<div class="flex flex-col items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row">
+  <p class="text-sm text-slate-500">
+    @if (totalCount === 0) {
+      Sin resultados
+    } @else {
+      Mostrando <span class="font-medium text-slate-700">{{ itemInicio }}</span>
+      a <span class="font-medium text-slate-700">{{ itemFin }}</span>
+      de <span class="font-medium text-slate-700">{{ totalCount }}</span> resultados
+    }
+  </p>
+
+  @if (totalPages > 1) {
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        (click)="anterior()"
+        [disabled]="currentPage === 1"
+        class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        Anterior
+      </button>
+
+      @for (pagina of paginas; track pagina) {
+        <button
+          type="button"
+          (click)="irA(pagina)"
+          [disabled]="pagina === currentPage"
+          class="min-w-[2.25rem] rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed"
+          [class.border-blue-600]="pagina === currentPage"
+          [class.bg-blue-600]="pagina === currentPage"
+          [class.text-white]="pagina === currentPage"
+          [class.border-slate-200]="pagina !== currentPage"
+          [class.text-slate-600]="pagina !== currentPage"
+          [class.hover:bg-slate-100]="pagina !== currentPage"
+        >
+          {{ pagina }}
+        </button>
+      }
+
+      <button
+        type="button"
+        (click)="siguiente()"
+        [disabled]="currentPage === totalPages"
+        class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+      >
+        Siguiente
+      </button>
+    </div>
+  }
+</div>

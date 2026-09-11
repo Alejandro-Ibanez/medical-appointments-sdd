@@ -1,0 +1,2380 @@
+openapi: 3.0.3
+info:
+  title: API - Sistema de Citas Medicas
+  description: >-
+    Especificacion OpenAPI del sistema de gestion de citas medicas.
+    Sirve como contrato (Specification-Driven Development) para el backend
+    en .NET (Clean Architecture + CQRS) y el frontend en Angular.
+  version: 1.0.0
+  contact:
+    name: Equipo Medical Appointments
+tags:
+  - name: Auth
+    description: Autenticacion y emision de tokens JWT
+  - name: Dashboard
+    description: Metricas e indicadores del panel de control
+  - name: Citas
+    description: Busqueda y consulta de citas medicas
+  - name: Reportes
+    description: Generacion de reportes de citas
+  - name: Pacientes
+    description: Mantenimiento de pacientes
+  - name: HistorialClinico
+    description: Historial clinico de los pacientes
+  - name: Medicos
+    description: Mantenimiento de medicos
+  - name: Consultorios
+    description: Gestion de consultorios (recursos fisicos) y horarios de atencion
+  - name: Usuarios
+    description: Mantenimiento de usuarios del sistema
+  - name: Seguridad
+    description: Administracion de permisos dinamicos asignados a cada rol
+
+servers:
+  - url: /api
+    description: Servidor base de la API
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Autentica un usuario y emite un token JWT
+      description: >-
+        Valida las credenciales del usuario y retorna un token JWT firmado.
+        El token incluye, entre sus claims, el rol del usuario
+        (Admin, Medico o Recepcionista) para habilitar el control de
+        acceso basado en roles (RBAC) en el resto de la API.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Autenticacion exitosa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /dashboard/stats:
+    get:
+      tags: [Dashboard]
+      summary: Obtiene las metricas principales del panel de control
+      description: >-
+        Retorna el total de citas de hoy, el total de pacientes registrados
+        y un desglose de citas por estado (pendientes, confirmadas,
+        canceladas).
+      operationId: obtenerEstadisticasDashboard
+      responses:
+        '200':
+          description: Metricas del dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardStats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /dashboard/metricas:
+    get:
+      tags: [Dashboard]
+      summary: Obtiene metricas avanzadas del panel de control
+      description: >-
+        Retorna un desglose ampliado de indicadores del sistema: citas de
+        hoy, total de pacientes, un resumen de citas por estado y la
+        demanda de citas agrupada por especialidad medica.
+      operationId: obtenerMetricasDashboard
+      responses:
+        '200':
+          description: Metricas avanzadas del dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardMetricas'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /citas:
+    post:
+      tags: [Citas]
+      summary: Agenda una nueva cita medica
+      description: >-
+        Endpoint de escritura (Command) del patron CQRS que agenda una
+        nueva cita para un paciente con un medico determinado, resolviendo
+        automaticamente el consultorio fisico asignado al medico segun su
+        horario de atencion. Retorna 400 si la fecha/hora solicitada se
+        encuentra en el pasado, si esta fuera del horario de atencion del
+        medico, si el medico ya tiene otra cita agendada que se solapa con
+        ese rango, o si el consultorio fisico correspondiente ya esta
+        ocupado por otra cita en ese mismo horario.
+      operationId: crearCita
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearCitaRequest'
+      responses:
+        '201':
+          description: Cita agendada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitaDetalleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /citas/{id}/cancelar:
+    put:
+      tags: [Citas]
+      summary: Cancela una cita medica existente
+      description: >-
+        Endpoint de escritura (Command) del patron CQRS que cambia el
+        estado de la cita a Cancelada y registra el motivo de la
+        cancelacion.
+      operationId: cancelarCita
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelarCitaRequest'
+      responses:
+        '200':
+          description: Cita cancelada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitaDetalleResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /citas/buscar:
+    get:
+      tags: [Citas]
+      summary: Busca citas medicas con filtros avanzados
+      description: >-
+        Endpoint de lectura (Query) del patron CQRS que permite buscar
+        citas combinando texto libre, medico, paciente (estos dos ultimos
+        normalmente seleccionados a traves del autocompletado) y un rango
+        de fechas. Todos los parametros son opcionales y combinables.
+        Retorna el listado paginado desde el servidor.
+      operationId: buscarCitas
+      parameters:
+        - $ref: '#/components/parameters/PalabraClaveParam'
+        - $ref: '#/components/parameters/MedicoIdParam'
+        - $ref: '#/components/parameters/PacienteIdParam'
+        - $ref: '#/components/parameters/FechaInicioParam'
+        - $ref: '#/components/parameters/FechaFinParam'
+        - $ref: '#/components/parameters/PageNumberParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+      responses:
+        '200':
+          description: Listado paginado de citas que cumplen los criterios de busqueda
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CitasPagedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /citas/calendario:
+    get:
+      tags: [Citas]
+      summary: Lista citas en formato simplificado para el calendario
+      description: >-
+        Endpoint de lectura (Query) optimizado para alimentar directamente
+        un componente de calendario (ej. FullCalendar). Retorna una
+        representacion simplificada de cada cita como evento, opcionalmente
+        acotada a un rango de fechas. El backend intercepta el token JWT
+        del usuario autenticado para aplicar control de acceso: si el rol
+        del usuario es Medico, el sistema ignora cualquier intento de
+        filtrar por otro medico y retorna estrictamente las citas
+        asociadas al MedicoId vinculado a su cuenta de usuario.
+      operationId: obtenerCitasCalendario
+      parameters:
+        - name: start
+          in: query
+          required: false
+          description: Fecha y hora de inicio del rango a consultar (inclusive)
+          schema:
+            type: string
+            format: date-time
+        - name: end
+          in: query
+          required: false
+          description: Fecha y hora de fin del rango a consultar (inclusive)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Listado de citas en formato de evento de calendario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CitaCalendarioResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reportes/excel:
+    get:
+      tags: [Reportes]
+      summary: Genera un reporte de citas en formato Excel
+      description: >-
+        Acepta exactamente los mismos filtros que el buscador avanzado de
+        citas y retorna un archivo binario .xlsx con el resultado.
+      operationId: generarReporteExcelCitas
+      parameters:
+        - $ref: '#/components/parameters/PalabraClaveParam'
+        - $ref: '#/components/parameters/MedicoIdParam'
+        - $ref: '#/components/parameters/PacienteIdParam'
+        - $ref: '#/components/parameters/FechaInicioParam'
+        - $ref: '#/components/parameters/FechaFinParam'
+      responses:
+        '200':
+          description: Archivo Excel (.xlsx) generado con las citas filtradas
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reportes/pdf:
+    get:
+      tags: [Reportes]
+      summary: Genera un reporte de citas en formato PDF
+      description: >-
+        Acepta exactamente los mismos filtros que el buscador avanzado de
+        citas y retorna un archivo binario .pdf con el resultado.
+      operationId: generarReportePdfCitas
+      parameters:
+        - $ref: '#/components/parameters/PalabraClaveParam'
+        - $ref: '#/components/parameters/MedicoIdParam'
+        - $ref: '#/components/parameters/PacienteIdParam'
+        - $ref: '#/components/parameters/FechaInicioParam'
+        - $ref: '#/components/parameters/FechaFinParam'
+      responses:
+        '200':
+          description: Archivo PDF (.pdf) generado con las citas filtradas
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /reportes/pacientes/{id}/historial-pdf:
+    get:
+      tags: [Reportes]
+      summary: Genera el historial clinico completo de un paciente en PDF
+      description: >-
+        Genera un documento PDF legal e imprimible con el historial
+        clinico completo del paciente indicado (todas sus entradas:
+        diagnostico, tratamiento, notas y medico responsable de cada una).
+        Requiere autenticacion Bearer JWT y el permiso 'reportes.descargar'.
+      operationId: generarReporteHistorialPdf
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '200':
+          description: Archivo PDF (.pdf) con el historial clinico completo del paciente
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reportes/medicos/{id}/agenda:
+    get:
+      tags: [Reportes]
+      summary: Genera el reporte de rendimiento y agenda de un medico
+      description: >-
+        Genera un reporte con las citas y el rendimiento del medico
+        indicado dentro del rango de fechas especificado, en el formato
+        solicitado (PDF o Excel). Requiere autenticacion Bearer JWT y el
+        permiso 'reportes.descargar'.
+      operationId: generarReporteAgendaMedico
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+        - $ref: '#/components/parameters/FechaInicioParam'
+        - $ref: '#/components/parameters/FechaFinParam'
+        - $ref: '#/components/parameters/FormatoReporteParam'
+      responses:
+        '200':
+          description: >-
+            Archivo binario (.pdf o .xlsx, segun el parametro 'formato')
+            con el reporte de agenda y rendimiento del medico
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reportes/consultorios/ocupacion:
+    get:
+      tags: [Reportes]
+      summary: Genera el reporte de ocupacion de los consultorios fisicos
+      description: >-
+        Genera un reporte estadistico en Excel sobre las horas de uso de
+        cada consultorio fisico de la clinica dentro del rango de fechas
+        especificado. Requiere autenticacion Bearer JWT y el permiso
+        'reportes.descargar'.
+      operationId: generarReporteOcupacionConsultorios
+      parameters:
+        - $ref: '#/components/parameters/FechaInicioParam'
+        - $ref: '#/components/parameters/FechaFinParam'
+      responses:
+        '200':
+          description: Archivo Excel (.xlsx) con la ocupacion de los consultorios
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /pacientes:
+    get:
+      tags: [Pacientes]
+      summary: Lista los pacientes de forma paginada
+      description: >-
+        Retorna el listado de pacientes aplicando paginacion desde el
+        servidor (server-side pagination).
+      operationId: listarPacientes
+      parameters:
+        - name: pageNumber
+          in: query
+          required: false
+          description: Numero de pagina a consultar (base 1)
+          schema:
+            type: integer
+            format: int32
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          required: false
+          description: Cantidad de registros a retornar por pagina
+          schema:
+            type: integer
+            format: int32
+            default: 10
+            minimum: 1
+        - $ref: '#/components/parameters/SearchQueryParam'
+      responses:
+        '200':
+          description: Listado paginado de pacientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Pacientes]
+      summary: Crea un nuevo paciente
+      operationId: crearPaciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PacienteInput'
+      responses:
+        '201':
+          description: Paciente creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paciente'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /pacientes/autocompletar:
+    get:
+      tags: [Pacientes]
+      summary: Autocompleta pacientes por nombre
+      description: >-
+        Endpoint de lectura ligero pensado para alimentar un componente de
+        autocompletado (typeahead). Retorna una representacion minima de
+        cada paciente que coincide parcialmente con el termino ingresado.
+      operationId: autocompletarPacientes
+      parameters:
+        - $ref: '#/components/parameters/TerminoAutocompletadoParam'
+      responses:
+        '200':
+          description: Listado simplificado de pacientes que coinciden con el termino
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PacienteAutocompletado'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /pacientes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPathParam'
+    get:
+      tags: [Pacientes]
+      summary: Obtiene un paciente por su identificador
+      operationId: obtenerPacientePorId
+      responses:
+        '200':
+          description: Paciente encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paciente'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Pacientes]
+      summary: Actualiza un paciente existente
+      operationId: actualizarPaciente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PacienteInput'
+      responses:
+        '200':
+          description: Paciente actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Paciente'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Pacientes]
+      summary: Elimina un paciente
+      operationId: eliminarPaciente
+      responses:
+        '204':
+          description: Paciente eliminado exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /pacientes/{id}/historial:
+    parameters:
+      - $ref: '#/components/parameters/IdPathParam'
+    get:
+      tags: [HistorialClinico]
+      summary: Obtiene el historial clinico completo de un paciente
+      description: >-
+        Retorna, en orden cronologico descendente, todas las entradas del
+        historial clinico registradas para el paciente indicado.
+      operationId: obtenerHistorialClinico
+      responses:
+        '200':
+          description: Historial clinico del paciente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistorialClinicoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [HistorialClinico]
+      summary: Agrega una nueva entrada al historial clinico del paciente
+      description: >-
+        Permite que un Medico registre una nueva entrada (diagnostico,
+        tratamiento y notas clinicas) en el historial del paciente indicado.
+        Si la peticion incluye 'citaId', la cita correspondiente se marca
+        automaticamente como 'Completada'.
+      operationId: agregarEntradaHistorialClinico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistorialClinicoInput'
+      responses:
+        '201':
+          description: Entrada de historial clinico registrada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistorialClinicoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /medicos:
+    get:
+      tags: [Medicos]
+      summary: Lista los medicos de forma paginada
+      description: >-
+        Retorna el listado de medicos aplicando paginacion desde el
+        servidor (server-side pagination), con busqueda global opcional.
+      operationId: listarMedicos
+      parameters:
+        - $ref: '#/components/parameters/PageNumberParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/SearchQueryParam'
+      responses:
+        '200':
+          description: Listado paginado de medicos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicosPagedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Medicos]
+      summary: Crea un nuevo medico
+      description: >-
+        Registra un nuevo medico y, de forma automatica y transaccional,
+        crea su cuenta de acceso (Usuario) con el rol Medico, enlazada al
+        registro de medico recien creado. Retorna 400 si el username ya
+        esta en uso.
+      operationId: crearMedico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearMedicoRequest'
+      responses:
+        '201':
+          description: Medico creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medico'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /medicos/autocompletar:
+    get:
+      tags: [Medicos]
+      summary: Autocompleta medicos por nombre
+      description: >-
+        Endpoint de lectura ligero pensado para alimentar un componente de
+        autocompletado (typeahead). Retorna una representacion minima de
+        cada medico que coincide parcialmente con el termino ingresado.
+      operationId: autocompletarMedicos
+      parameters:
+        - $ref: '#/components/parameters/TerminoAutocompletadoParam'
+      responses:
+        '200':
+          description: Listado simplificado de medicos que coinciden con el termino
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MedicoAutocompletado'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /medicos/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPathParam'
+    get:
+      tags: [Medicos]
+      summary: Obtiene un medico por su identificador
+      operationId: obtenerMedicoPorId
+      responses:
+        '200':
+          description: Medico encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medico'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Medicos]
+      summary: Actualiza un medico existente
+      operationId: actualizarMedico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicoInput'
+      responses:
+        '200':
+          description: Medico actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medico'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Medicos]
+      summary: Elimina un medico
+      operationId: eliminarMedico
+      responses:
+        '204':
+          description: Medico eliminado exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /medicos/{id}/horarios:
+    parameters:
+      - $ref: '#/components/parameters/IdPathParam'
+    get:
+      tags: [Medicos]
+      summary: Obtiene la disponibilidad horaria de un medico
+      description: >-
+        Retorna la lista de horarios de atencion y los consultorios fisicos
+        asignados al medico indicado. Accesible para Admin y Recepcionista
+        sin restriccion; un usuario con rol Medico solo puede consultar
+        este recurso cuando el {id} solicitado coincide con su propio
+        MedicoId (retorna 403 en caso contrario).
+      operationId: obtenerHorariosMedico
+      responses:
+        '200':
+          description: Listado de horarios de atencion del medico
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HorarioAtencionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Medicos]
+      summary: Asigna un nuevo horario de atencion al medico en un consultorio
+      description: >-
+        Registra un rango horario de atencion para el medico indicado en el
+        consultorio especificado. Retorna 400 si el medico ya tiene un
+        horario asignado que se solapa con el rango indicado para ese
+        dia de la semana, o si el consultorio ya esta reservado por otro
+        medico en ese mismo dia y rango horario.
+      operationId: agregarHorarioMedico
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HorarioAtencionRequest'
+      responses:
+        '201':
+          description: Horario de atencion registrado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorarioAtencionResponse'
+        '400':
+          description: >-
+            El medico ya esta ocupado ese dia/hora, o el consultorio ya esta
+            reservado por otro especialista en ese mismo rango horario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /horarios/{id}:
+    delete:
+      tags: [Medicos]
+      summary: Elimina un horario de atencion especifico
+      operationId: eliminarHorarioAtencion
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      responses:
+        '204':
+          description: Horario de atencion eliminado exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /consultorios:
+    get:
+      tags: [Consultorios]
+      summary: Lista todos los consultorios
+      operationId: listarConsultorios
+      responses:
+        '200':
+          description: Listado de consultorios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ConsultorioResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Consultorios]
+      summary: Crea un nuevo consultorio
+      operationId: crearConsultorio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultorioRequest'
+      responses:
+        '201':
+          description: Consultorio creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultorioResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /consultorios/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdPathParam'
+    put:
+      tags: [Consultorios]
+      summary: Actualiza un consultorio existente
+      operationId: actualizarConsultorio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsultorioRequest'
+      responses:
+        '200':
+          description: Consultorio actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsultorioResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Consultorios]
+      summary: Da de baja un consultorio
+      description: >-
+        Realiza una baja logica del consultorio (lo marca como inactivo),
+        en lugar de eliminarlo fisicamente.
+      operationId: eliminarConsultorio
+      responses:
+        '204':
+          description: Consultorio dado de baja exitosamente
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Lista los usuarios del sistema de forma paginada
+      description: >-
+        Retorna el listado de usuarios aplicando paginacion desde el
+        servidor (server-side pagination), con busqueda global opcional.
+        Requiere el permiso 'usuarios.administrar'.
+      operationId: listarUsuarios
+      parameters:
+        - $ref: '#/components/parameters/PageNumberParam'
+        - $ref: '#/components/parameters/PageSizeParam'
+        - $ref: '#/components/parameters/SearchQueryParam'
+      responses:
+        '200':
+          description: Listado paginado de usuarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuariosPagedResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Usuarios]
+      summary: Registra un nuevo usuario en el sistema
+      description: >-
+        Crea una nueva cuenta de usuario. Si el RolId indicado corresponde
+        al rol Medico, el MedicoId recibido se vincula obligatoriamente a
+        la cuenta creada, para poder resolver a partir del token JWT a que
+        medico corresponde el usuario autenticado. Requiere el permiso
+        'usuarios.administrar'.
+      operationId: crearUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrearUsuarioRequest'
+      responses:
+        '201':
+          description: Usuario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /usuarios/{id}/estado:
+    put:
+      tags: [Usuarios]
+      summary: Activa o desactiva la cuenta de un usuario
+      description: >-
+        Realiza una baja (o alta) logica de la cuenta del usuario
+        indicado. Requiere el permiso 'usuarios.administrar'.
+      operationId: actualizarEstadoUsuario
+      parameters:
+        - $ref: '#/components/parameters/IdPathParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarEstadoUsuarioRequest'
+      responses:
+        '200':
+          description: Estado del usuario actualizado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /usuarios/cambiar-password:
+    put:
+      tags: [Usuarios]
+      summary: Cambia la contrasena del usuario autenticado
+      description: >-
+        Endpoint global de autoservicio: cualquier usuario autenticado
+        puede actualizar su propia contrasena enviando su contrasena
+        actual y la nueva. El backend resuelve el identificador del
+        usuario a partir de los Claims de su token JWT (no se recibe por
+        parametro ni por el cuerpo de la peticion), por lo que no requiere
+        ningun permiso administrativo especial.
+      operationId: cambiarPasswordUsuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambiarPasswordRequest'
+      responses:
+        '204':
+          description: Contrasena actualizada exitosamente
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /seguridad/permisos:
+    get:
+      tags: [Seguridad]
+      summary: Lista todos los permisos disponibles en el sistema
+      description: >-
+        Retorna el catalogo completo de permisos que pueden asignarse a
+        cualquier rol, independientemente de cuales esten actualmente
+        activos para alguno de ellos.
+      operationId: listarPermisos
+      responses:
+        '200':
+          description: Listado completo de permisos disponibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermisoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /seguridad/roles:
+    get:
+      tags: [Seguridad]
+      summary: Lista todos los roles disponibles en el sistema
+      description: >-
+        Retorna el catalogo de roles (Admin, Medico, Recepcionista) junto
+        con su identificador (RolId), necesario para poder asignar un rol
+        al registrar manualmente un nuevo usuario.
+      operationId: listarRoles
+      responses:
+        '200':
+          description: Listado de roles disponibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RolResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /seguridad/roles/{rol}/permisos:
+    parameters:
+      - name: rol
+        in: path
+        required: true
+        description: Rol sobre el cual se consulta o actualiza la configuracion de permisos
+        schema:
+          $ref: '#/components/schemas/RolUsuario'
+    get:
+      tags: [Seguridad]
+      summary: Obtiene los permisos activos de un rol
+      description: >-
+        Retorna unicamente los permisos que estan actualmente activos
+        (asignados) para el rol indicado.
+      operationId: obtenerPermisosDeRol
+      responses:
+        '200':
+          description: Listado de permisos activos para el rol indicado
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermisoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Seguridad]
+      summary: Actualiza los permisos asignados a un rol
+      description: >-
+        Reemplaza por completo la configuracion de permisos del rol
+        indicado con el conjunto de identificadores de permisos recibido.
+      operationId: actualizarPermisosDeRol
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActualizarPermisosRolRequest'
+      responses:
+        '200':
+          description: Permisos del rol actualizados exitosamente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PermisoResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Autenticacion mediante token JWT emitido por POST /api/auth/login.
+        El token transporta, entre sus claims, el rol del usuario
+        (Admin, Medico o Recepcionista), utilizado por la API para aplicar
+        control de acceso basado en roles (RBAC).
+
+  parameters:
+    IdPathParam:
+      name: id
+      in: path
+      required: true
+      description: Identificador unico del recurso
+      schema:
+        type: integer
+        format: int64
+    PalabraClaveParam:
+      name: palabraClave
+      in: query
+      required: false
+      description: >-
+        Texto libre para buscar en el motivo de consulta, el historial
+        clinico, el paciente o el medico
+      schema:
+        type: string
+    TerminoAutocompletadoParam:
+      name: term
+      in: query
+      required: true
+      description: Texto parcial ingresado por el usuario para el autocompletado
+      schema:
+        type: string
+        minLength: 1
+    MedicoIdParam:
+      name: medicoId
+      in: query
+      required: false
+      description: Identificador del medico asignado a la cita
+      schema:
+        type: integer
+        format: int64
+    PacienteIdParam:
+      name: pacienteId
+      in: query
+      required: false
+      description: Identificador del paciente asociado a la cita
+      schema:
+        type: integer
+        format: int64
+    FechaInicioParam:
+      name: fechaInicio
+      in: query
+      required: false
+      description: Fecha inicial del rango de busqueda (inclusive)
+      schema:
+        type: string
+        format: date
+        example: '2026-01-01'
+    FechaFinParam:
+      name: fechaFin
+      in: query
+      required: false
+      description: Fecha final del rango de busqueda (inclusive)
+      schema:
+        type: string
+        format: date
+        example: '2026-12-31'
+    FormatoReporteParam:
+      name: formato
+      in: query
+      required: true
+      description: Formato binario en el que se debe generar el reporte
+      schema:
+        type: string
+        enum: [pdf, excel]
+        example: pdf
+    SearchQueryParam:
+      name: searchQuery
+      in: query
+      required: false
+      description: >-
+        Texto libre para realizar busquedas parciales por Nombre Completo,
+        Documento de Identidad o Numero de Telefono
+      schema:
+        type: string
+    PageNumberParam:
+      name: pageNumber
+      in: query
+      required: false
+      description: Numero de pagina a consultar (base 1)
+      schema:
+        type: integer
+        format: int32
+        default: 1
+        minimum: 1
+    PageSizeParam:
+      name: pageSize
+      in: query
+      required: false
+      description: Cantidad de registros a retornar por pagina
+      schema:
+        type: integer
+        format: int32
+        default: 10
+        minimum: 1
+
+  responses:
+    BadRequest:
+      description: La solicitud contiene datos invalidos
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Credenciales invalidas o token ausente/expirado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: >-
+        El usuario esta autenticado pero no cuenta con el rol o los permisos
+        necesarios para acceder a este recurso
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: El recurso solicitado no existe
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    DashboardStats:
+      type: object
+      description: Metricas principales del panel de control
+      required:
+        - citasHoy
+        - totalPacientes
+        - citasPendientes
+        - citasConfirmadas
+        - citasCanceladas
+      properties:
+        citasHoy:
+          type: integer
+          format: int32
+          description: Total de citas programadas para el dia de hoy
+          example: 5
+        totalPacientes:
+          type: integer
+          format: int32
+          description: Total de pacientes registrados en el sistema
+          example: 128
+        citasPendientes:
+          type: integer
+          format: int32
+          description: Citas en estado Programada
+          example: 12
+        citasConfirmadas:
+          type: integer
+          format: int32
+          description: Citas en estado Confirmada
+          example: 8
+        citasCanceladas:
+          type: integer
+          format: int32
+          description: Citas en estado Cancelada
+          example: 3
+
+    ResumenEstadosCitas:
+      type: object
+      description: Desglose de citas agrupadas por su estado actual
+      required:
+        - pendientes
+        - confirmadas
+        - completadas
+        - canceladas
+      properties:
+        pendientes:
+          type: integer
+          format: int32
+          description: Citas en estado Programada
+          example: 12
+        confirmadas:
+          type: integer
+          format: int32
+          description: Citas en estado Confirmada
+          example: 8
+        completadas:
+          type: integer
+          format: int32
+          description: Citas en estado Completada
+          example: 20
+        canceladas:
+          type: integer
+          format: int32
+          description: Citas en estado Cancelada
+          example: 3
+
+    DemandaEspecialidad:
+      type: object
+      description: Cantidad de citas agendadas para una especialidad medica
+      required:
+        - especialidad
+        - totalCitas
+      properties:
+        especialidad:
+          type: string
+          example: Cardiologia
+        totalCitas:
+          type: integer
+          format: int32
+          example: 34
+
+    DashboardMetricas:
+      type: object
+      description: Metricas avanzadas del panel de control
+      required:
+        - citasHoy
+        - totalPacientes
+        - resumenEstados
+        - demandasPorEspecialidad
+      properties:
+        citasHoy:
+          type: integer
+          format: int32
+          description: Total de citas programadas para el dia de hoy
+          example: 5
+        totalPacientes:
+          type: integer
+          format: int32
+          description: Total de pacientes registrados en el sistema
+          example: 128
+        resumenEstados:
+          $ref: '#/components/schemas/ResumenEstadosCitas'
+        demandasPorEspecialidad:
+          type: array
+          description: Cantidad de citas agendadas por cada especialidad medica
+          items:
+            $ref: '#/components/schemas/DemandaEspecialidad'
+
+    RolUsuario:
+      type: string
+      description: Rol del usuario, transportado como claim dentro del JWT
+      enum:
+        - Admin
+        - Medico
+        - Recepcionista
+
+    PermisoResponse:
+      type: object
+      description: Un permiso dinamico que puede asignarse a uno o mas roles
+      required:
+        - id
+        - nombre
+        - codigo
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombre:
+          type: string
+          description: Nombre legible del permiso
+          example: Descargar Reportes
+        codigo:
+          type: string
+          description: Codigo unico y estable utilizado por el backend para validar el permiso
+          example: reportes.descargar
+
+    RolResponse:
+      type: object
+      description: Un rol del sistema (tabla Roles)
+      required:
+        - id
+        - nombre
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombre:
+          type: string
+          example: Medico
+
+    ActualizarPermisosRolRequest:
+      type: object
+      description: Nueva configuracion de permisos a asignar a un rol
+      required:
+        - permisosIds
+      properties:
+        permisosIds:
+          type: array
+          description: Identificadores de los permisos que quedaran activos para el rol
+          items:
+            type: integer
+            format: int64
+          example: [1, 3, 5]
+
+    EstadoCita:
+      type: string
+      description: Estado actual de la cita medica
+      enum:
+        - Programada
+        - Confirmada
+        - Cancelada
+        - Completada
+        - NoAsistio
+
+    GeneroPaciente:
+      type: string
+      description: Genero del paciente
+      enum:
+        - Masculino
+        - Femenino
+        - Otro
+
+    DiaSemana:
+      type: string
+      description: Dia de la semana para la disponibilidad horaria de un medico
+      enum:
+        - Lunes
+        - Martes
+        - Miercoles
+        - Jueves
+        - Viernes
+        - Sabado
+
+    ConsultorioResponse:
+      type: object
+      description: Consultorio fisico donde se atienden las citas medicas
+      required:
+        - id
+        - nombre
+        - ubicacion
+        - activo
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombre:
+          type: string
+          example: Consultorio 101
+        ubicacion:
+          type: string
+          example: Piso 1 - Ala Norte
+        activo:
+          type: boolean
+          default: true
+
+    ConsultorioRequest:
+      type: object
+      description: Datos requeridos para crear o editar un consultorio
+      required:
+        - nombre
+        - ubicacion
+      properties:
+        nombre:
+          type: string
+          example: Consultorio 101
+        ubicacion:
+          type: string
+          example: Piso 1 - Ala Norte
+
+    MedicoResponse:
+      type: object
+      description: Representacion completa de un medico
+      required:
+        - id
+        - nombreCompleto
+        - documentoIdentidad
+        - especialidad
+        - numeroLicencia
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        documentoIdentidad:
+          type: string
+          example: '1710034567'
+        telefono:
+          type: string
+          example: '+593987654322'
+        email:
+          type: string
+          format: email
+          example: carlos.ramirez@clinica.com
+        especialidad:
+          type: string
+          example: Cardiologia
+        numeroLicencia:
+          type: string
+          example: MED-00123
+
+    HorarioAtencionRequest:
+      type: object
+      description: Datos requeridos para asignar un rango de disponibilidad horaria
+      required:
+        - diaSemana
+        - horaInicio
+        - horaFin
+        - consultorioId
+      properties:
+        diaSemana:
+          $ref: '#/components/schemas/DiaSemana'
+        horaInicio:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Hora de inicio en formato 24 horas (HH:mm)
+          example: '08:00'
+        horaFin:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          description: Hora de fin en formato 24 horas (HH:mm)
+          example: '12:00'
+        consultorioId:
+          type: integer
+          format: int64
+          example: 1
+
+    HorarioAtencionResponse:
+      type: object
+      description: >-
+        Un rango de disponibilidad horaria asignado a un medico en un
+        consultorio especifico
+      required:
+        - id
+        - medicoId
+        - diaSemana
+        - horaInicio
+        - horaFin
+        - consultorio
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        medicoId:
+          type: integer
+          format: int64
+          example: 1
+        diaSemana:
+          $ref: '#/components/schemas/DiaSemana'
+        horaInicio:
+          type: string
+          example: '08:00'
+        horaFin:
+          type: string
+          example: '12:00'
+        consultorio:
+          $ref: '#/components/schemas/ConsultorioResponse'
+
+    Error:
+      type: object
+      required:
+        - mensaje
+      properties:
+        mensaje:
+          type: string
+          description: Descripcion legible del error
+        detalles:
+          type: array
+          items:
+            type: string
+          description: Detalles adicionales del error, si aplica
+
+    LoginRequest:
+      type: object
+      required:
+        - usuario
+        - contrasena
+      properties:
+        usuario:
+          type: string
+          description: Correo electronico o nombre de usuario
+          example: admin@clinica.com
+        contrasena:
+          type: string
+          format: password
+          example: Passw0rd!
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - username
+        - nombreCompleto
+        - rol
+      properties:
+        token:
+          type: string
+          description: Token de acceso JWT
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        username:
+          type: string
+          description: Nombre de usuario utilizado para iniciar sesion
+          example: medico1
+        nombreCompleto:
+          type: string
+          description: Nombre completo del usuario autenticado
+          example: Juan Perez
+        rol:
+          $ref: '#/components/schemas/RolUsuario'
+        medicoId:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Identificador del registro de Medico vinculado a este usuario,
+            presente unicamente cuando el rol es Medico. Permite al
+            frontend saber si el usuario autenticado es un profesional de
+            la salud y a que medico corresponde.
+          example: 1
+
+    UsuarioResponse:
+      type: object
+      description: Representacion de una cuenta de usuario del sistema
+      required:
+        - id
+        - nombreCompleto
+        - username
+        - rolNombre
+        - activo
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Juan Perez
+        username:
+          type: string
+          example: admin
+        rolNombre:
+          type: string
+          description: Nombre del rol asignado a esta cuenta
+          example: Medico
+        activo:
+          type: boolean
+          default: true
+        medicoId:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Identificador del registro de Medico vinculado a esta cuenta,
+            presente unicamente cuando el rol asignado es Medico
+          example: 1
+
+    CrearUsuarioRequest:
+      type: object
+      description: Datos para registrar manualmente un nuevo usuario en el sistema
+      required:
+        - nombreCompleto
+        - username
+        - password
+        - rolId
+      properties:
+        nombreCompleto:
+          type: string
+          example: Juan Perez
+        username:
+          type: string
+          example: jperez
+        password:
+          type: string
+          format: password
+          minLength: 6
+          example: Passw0rd!
+        rolId:
+          type: integer
+          format: int64
+          description: Identificador del Rol (tabla Roles) que se asignara a esta cuenta
+          example: 3
+        medicoId:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Identificador del Medico a vincular con esta cuenta. Obligatorio
+            cuando el RolId corresponde al rol Medico.
+          example: 1
+
+    ActualizarEstadoUsuarioRequest:
+      type: object
+      description: Nuevo estado (activo/inactivo) para la cuenta de un usuario
+      required:
+        - activo
+      properties:
+        activo:
+          type: boolean
+          example: false
+
+    CambiarPasswordRequest:
+      type: object
+      description: >-
+        Datos para que el usuario autenticado actualice su propia
+        contrasena
+      required:
+        - passwordActual
+        - passwordNueva
+      properties:
+        passwordActual:
+          type: string
+          format: password
+          example: Passw0rd!
+        passwordNueva:
+          type: string
+          format: password
+          minLength: 6
+          example: NuevoPassw0rd!
+
+    UsuariosPagedResponse:
+      type: object
+      description: Respuesta paginada del listado de usuarios (paginacion server-side)
+      required:
+        - data
+        - pageNumber
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsuarioResponse'
+        pageNumber:
+          type: integer
+          format: int32
+          description: Numero de pagina actual (base 1)
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Cantidad de registros por pagina
+          example: 10
+        totalCount:
+          type: integer
+          format: int32
+          description: Total de registros existentes en la base de datos
+          example: 3
+        totalPages:
+          type: integer
+          format: int32
+          description: Total de paginas disponibles
+          example: 1
+
+    Paciente:
+      type: object
+      required:
+        - id
+        - nombreCompleto
+        - documentoIdentidad
+        - fechaNacimiento
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Maria Gonzalez
+        documentoIdentidad:
+          type: string
+          example: '0102030405'
+        fechaNacimiento:
+          type: string
+          format: date
+          example: '1990-05-15'
+        telefono:
+          type: string
+          example: '+593987654321'
+        email:
+          type: string
+          format: email
+          example: maria.gonzalez@correo.com
+        direccion:
+          type: string
+          example: Av. Siempre Viva 123
+        activo:
+          type: boolean
+          default: true
+        genero:
+          $ref: '#/components/schemas/GeneroPaciente'
+        alergias:
+          type: string
+          nullable: true
+          description: >-
+            Texto libre para registrar alergias u otras condiciones de
+            alerta medica del paciente
+          example: Alergia a la penicilina
+
+    PacienteAutocompletado:
+      type: object
+      description: Representacion minima de un paciente para autocompletado
+      required:
+        - id
+        - nombreCompleto
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Maria Gonzalez
+
+    PagedResponse:
+      type: object
+      description: Respuesta paginada del listado de pacientes (paginacion server-side)
+      required:
+        - data
+        - pageNumber
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Paciente'
+        pageNumber:
+          type: integer
+          format: int32
+          description: Numero de pagina actual (base 1)
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Cantidad de registros por pagina
+          example: 10
+        totalCount:
+          type: integer
+          format: int32
+          description: Total de registros existentes en la base de datos
+          example: 42
+        totalPages:
+          type: integer
+          format: int32
+          description: Total de paginas disponibles
+          example: 5
+
+    MedicosPagedResponse:
+      type: object
+      description: Respuesta paginada del listado de medicos (paginacion server-side)
+      required:
+        - data
+        - pageNumber
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Medico'
+        pageNumber:
+          type: integer
+          format: int32
+          description: Numero de pagina actual (base 1)
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Cantidad de registros por pagina
+          example: 10
+        totalCount:
+          type: integer
+          format: int32
+          description: Total de registros existentes en la base de datos
+          example: 12
+        totalPages:
+          type: integer
+          format: int32
+          description: Total de paginas disponibles
+          example: 2
+
+    CitasPagedResponse:
+      type: object
+      description: Respuesta paginada del buscador avanzado de citas (paginacion server-side)
+      required:
+        - data
+        - pageNumber
+        - pageSize
+        - totalCount
+        - totalPages
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Cita'
+        pageNumber:
+          type: integer
+          format: int32
+          description: Numero de pagina actual (base 1)
+          example: 1
+        pageSize:
+          type: integer
+          format: int32
+          description: Cantidad de registros por pagina
+          example: 10
+        totalCount:
+          type: integer
+          format: int32
+          description: Total de registros existentes que cumplen los criterios de busqueda
+          example: 5
+        totalPages:
+          type: integer
+          format: int32
+          description: Total de paginas disponibles
+          example: 1
+
+    PacienteInput:
+      type: object
+      required:
+        - nombreCompleto
+        - documentoIdentidad
+        - fechaNacimiento
+      properties:
+        nombreCompleto:
+          type: string
+          example: Maria Gonzalez
+        documentoIdentidad:
+          type: string
+          example: '0102030405'
+        fechaNacimiento:
+          type: string
+          format: date
+          example: '1990-05-15'
+        telefono:
+          type: string
+          example: '+593987654321'
+        email:
+          type: string
+          format: email
+          example: maria.gonzalez@correo.com
+        direccion:
+          type: string
+          example: Av. Siempre Viva 123
+        activo:
+          type: boolean
+          default: true
+        genero:
+          $ref: '#/components/schemas/GeneroPaciente'
+        alergias:
+          type: string
+          nullable: true
+          description: >-
+            Texto libre para registrar alergias u otras condiciones de
+            alerta medica del paciente
+          example: Alergia a la penicilina
+
+    Medico:
+      type: object
+      required:
+        - id
+        - nombreCompleto
+        - documentoIdentidad
+        - especialidad
+        - numeroColegiado
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        documentoIdentidad:
+          type: string
+          example: '0101010101'
+        especialidad:
+          type: string
+          example: Cardiologia
+        numeroColegiado:
+          type: string
+          example: MED-00123
+        telefono:
+          type: string
+          example: '+593987654322'
+        email:
+          type: string
+          format: email
+          example: carlos.ramirez@clinica.com
+        activo:
+          type: boolean
+          default: true
+
+    MedicoAutocompletado:
+      type: object
+      description: Representacion minima de un medico para autocompletado
+      required:
+        - id
+        - nombreCompleto
+        - especialidad
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        especialidad:
+          type: string
+          example: Cardiologia
+
+    MedicoInput:
+      type: object
+      description: Datos para actualizar un medico existente (no modifica su cuenta de acceso)
+      required:
+        - nombreCompleto
+        - especialidad
+        - numeroColegiado
+      properties:
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        documentoIdentidad:
+          type: string
+          example: '0101010101'
+        especialidad:
+          type: string
+          example: Cardiologia
+        numeroColegiado:
+          type: string
+          example: MED-00123
+        telefono:
+          type: string
+          example: '+593987654322'
+        email:
+          type: string
+          format: email
+          example: carlos.ramirez@clinica.com
+        activo:
+          type: boolean
+          default: true
+
+    CrearMedicoRequest:
+      type: object
+      description: >-
+        Datos para registrar un nuevo medico junto con la cuenta de usuario
+        que le permitira autenticarse en el sistema con el rol Medico.
+      required:
+        - nombreCompleto
+        - documentoIdentidad
+        - telefono
+        - email
+        - especialidad
+        - numeroColegiado
+        - username
+        - password
+      properties:
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        documentoIdentidad:
+          type: string
+          example: '0101010101'
+        especialidad:
+          type: string
+          example: Cardiologia
+        numeroColegiado:
+          type: string
+          example: MED-00123
+        telefono:
+          type: string
+          example: '+593987654322'
+        email:
+          type: string
+          format: email
+          example: carlos.ramirez@clinica.com
+        username:
+          type: string
+          description: Nombre de usuario para la cuenta de acceso del medico
+          example: carlos.ramirez
+        password:
+          type: string
+          format: password
+          description: Contrasena inicial de la cuenta de acceso del medico
+          minLength: 6
+          example: medico123
+
+    Cita:
+      type: object
+      description: >-
+        Representa una cita medica. Contiene referencias limpias y
+        completas hacia el paciente y el medico asignados, evitando
+        duplicar su definicion.
+      required:
+        - id
+        - paciente
+        - medico
+        - fechaHora
+        - estado
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        paciente:
+          $ref: '#/components/schemas/Paciente'
+        medico:
+          $ref: '#/components/schemas/Medico'
+        fechaHora:
+          type: string
+          format: date-time
+          example: '2026-03-10T09:30:00Z'
+        estado:
+          $ref: '#/components/schemas/EstadoCita'
+        motivo:
+          type: string
+          example: Control anual
+        observaciones:
+          type: string
+          example: Paciente refiere molestias leves
+        fechaCreacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    CrearCitaRequest:
+      type: object
+      description: Datos requeridos para agendar una nueva cita medica
+      required:
+        - pacienteId
+        - medicoId
+        - fechaHora
+        - motivoConsulta
+      properties:
+        pacienteId:
+          type: integer
+          format: int64
+          example: 1
+        medicoId:
+          type: integer
+          format: int64
+          example: 1
+        fechaHora:
+          type: string
+          format: date-time
+          example: '2026-03-10T09:30:00Z'
+        motivoConsulta:
+          type: string
+          example: Control anual
+
+    CancelarCitaRequest:
+      type: object
+      description: Datos requeridos para cancelar una cita medica existente
+      required:
+        - motivoCancelacion
+      properties:
+        motivoCancelacion:
+          type: string
+          example: El paciente solicito reprogramar la consulta
+
+    PacienteResumenCita:
+      type: object
+      description: Resumen del paciente embebido en el detalle de una cita
+      required:
+        - id
+        - nombreCompleto
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Maria Gonzalez
+        alergias:
+          type: string
+          nullable: true
+          example: Penicilina
+
+    MedicoResumenCita:
+      type: object
+      description: Resumen del medico embebido en el detalle de una cita
+      required:
+        - id
+        - nombreCompleto
+        - especialidad
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        nombreCompleto:
+          type: string
+          example: Dr. Carlos Ramirez
+        especialidad:
+          type: string
+          example: Cardiologia
+
+    CitaDetalleResponse:
+      type: object
+      description: >-
+        Representacion detallada de una cita medica, incluyendo un resumen
+        del paciente y del medico asignados.
+      required:
+        - id
+        - fechaHora
+        - motivoConsulta
+        - estado
+        - paciente
+        - medico
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        fechaHora:
+          type: string
+          format: date-time
+          example: '2026-03-10T09:30:00Z'
+        motivoConsulta:
+          type: string
+          example: Control anual
+        estado:
+          $ref: '#/components/schemas/EstadoCita'
+        paciente:
+          $ref: '#/components/schemas/PacienteResumenCita'
+        medico:
+          $ref: '#/components/schemas/MedicoResumenCita'
+
+    CitaCalendarioResponse:
+      type: object
+      description: >-
+        Representacion simplificada de una cita, lista para dibujarse como
+        evento en un componente de calendario (ej. FullCalendar).
+      required:
+        - id
+        - title
+        - start
+        - estado
+        - pacienteId
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        title:
+          type: string
+          description: Titulo del evento, listo para mostrarse en el calendario
+          example: Maria Gonzalez - Control anual
+        start:
+          type: string
+          format: date-time
+          description: Fecha y hora de inicio de la cita
+          example: '2026-09-10T09:30:00Z'
+        end:
+          type: string
+          format: date-time
+          description: Fecha y hora de fin estimada de la cita
+          example: '2026-09-10T10:00:00Z'
+        estado:
+          $ref: '#/components/schemas/EstadoCita'
+        pacienteId:
+          type: integer
+          format: int64
+          description: >-
+            Identificador del paciente, necesario para poder consultar su
+            historial clinico desde el detalle del evento
+          example: 1
+        pacienteNombre:
+          type: string
+          example: Maria Gonzalez
+        medicoNombre:
+          type: string
+          example: Dr. Carlos Ramirez
+
+    HistorialClinicoResponse:
+      type: object
+      description: Una entrada del historial clinico de un paciente
+      required:
+        - id
+        - fechaHora
+        - medicoNombre
+        - diagnostico
+      properties:
+        id:
+          type: integer
+          format: int64
+          readOnly: true
+        fechaHora:
+          type: string
+          format: date-time
+          description: Fecha y hora en que se registro la entrada clinica
+          example: '2026-09-10T10:15:00Z'
+        medicoNombre:
+          type: string
+          description: Nombre del medico que registro la entrada
+          example: Dr. Carlos Ramirez
+        diagnostico:
+          type: string
+          example: Hipertension arterial controlada
+        tratamiento:
+          type: string
+          example: Losartan 50mg cada 24 horas
+        notas:
+          type: string
+          description: Notas clinicas adicionales del medico
+          example: Paciente refiere buena adherencia al tratamiento previo
+
+    HistorialClinicoInput:
+      type: object
+      description: Datos requeridos para registrar una nueva entrada del historial clinico
+      required:
+        - diagnostico
+      properties:
+        diagnostico:
+          type: string
+          example: Hipertension arterial controlada
+        tratamiento:
+          type: string
+          example: Losartan 50mg cada 24 horas
+        notas:
+          type: string
+          example: Paciente refiere buena adherencia al tratamiento previo
+        citaId:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Identificador opcional de la cita medica que origino esta
+            entrada del historial clinico. Cuando se envia, el backend
+            marca automaticamente esa cita como 'Completada'.
+          example: 12

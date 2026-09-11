@@ -1,0 +1,137 @@
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" (click)="cancelar()">
+  <div class="w-full max-w-md rounded-xl bg-white p-6 shadow-xl" (click)="$event.stopPropagation()">
+    <div class="flex items-start justify-between">
+      <h2 class="text-lg font-semibold text-slate-800">
+        {{ esEdicion ? 'Editar paciente' : 'Registrar nuevo paciente' }}
+      </h2>
+      <button
+        type="button"
+        (click)="cancelar()"
+        class="rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        aria-label="Cerrar"
+      >
+        ✕
+      </button>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="guardar()" class="mt-4 space-y-3">
+      <div>
+        <label for="nombreCompleto" class="block text-sm font-medium text-slate-700">Nombre completo</label>
+        <input
+          id="nombreCompleto"
+          type="text"
+          formControlName="nombreCompleto"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+
+      <div>
+        <label for="documentoIdentidad" class="block text-sm font-medium text-slate-700">Documento de identidad</label>
+        <input
+          id="documentoIdentidad"
+          type="text"
+          formControlName="documentoIdentidad"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="fechaNacimiento" class="block text-sm font-medium text-slate-700">Fecha de nacimiento</label>
+          <input
+            id="fechaNacimiento"
+            type="date"
+            formControlName="fechaNacimiento"
+            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        </div>
+        <div>
+          <label for="genero" class="block text-sm font-medium text-slate-700">Género</label>
+          <select
+            id="genero"
+            formControlName="genero"
+            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          >
+            @for (opcion of opcionesGenero; track opcion) {
+              <option [value]="opcion">{{ opcion }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="telefono" class="block text-sm font-medium text-slate-700">Teléfono</label>
+          <input
+            id="telefono"
+            type="tel"
+            formControlName="telefono"
+            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-medium text-slate-700">Email</label>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label for="direccion" class="block text-sm font-medium text-slate-700">Dirección</label>
+        <input
+          id="direccion"
+          type="text"
+          formControlName="direccion"
+          class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+        />
+      </div>
+
+      <div>
+        <label for="alergias" class="block text-sm font-medium text-amber-700">
+          ⚠️ Alergias / condiciones de alerta
+        </label>
+        <textarea
+          id="alergias"
+          rows="3"
+          formControlName="alergias"
+          placeholder="Ej. Alergia a la Penicilina"
+          class="mt-1 w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-slate-900 shadow-sm transition placeholder:text-amber-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"
+        ></textarea>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
+        <input
+          type="checkbox"
+          formControlName="activo"
+          class="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+        />
+        Paciente activo
+      </label>
+
+      @if (error()) {
+        <p class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{{ error() }}</p>
+      }
+
+      <div class="flex justify-end gap-3 pt-2">
+        <button
+          type="button"
+          (click)="cancelar()"
+          class="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          [disabled]="guardando()"
+          class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {{ guardando() ? 'Guardando...' : (esEdicion ? 'Guardar cambios' : 'Guardar paciente') }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

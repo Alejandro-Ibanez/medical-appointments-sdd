@@ -1,0 +1,35 @@
+{
+  "runtime": "Net100",
+  "defaultVariables": null,
+  "documentGenerator": {
+    "fromDocument": {
+      "json": null,
+      "url": "../api-spec/openapi.yaml",
+      "output": null
+    }
+  },
+  "codeGenerators": {
+    "openApiToCSharpController": {
+      "jsonLibrary": "SystemTextJson",
+      "controllerStyle": "abstract",
+      "controllerTarget": "AspNetCore",
+      "className": "Usuarios",
+      "generateDtoTypes": false,
+      "generateResponseClasses": false,
+      "includedOperationIds": [
+        "listarUsuarios",
+        "crearUsuario",
+        "actualizarEstadoUsuario",
+        "cambiarPasswordUsuario"
+      ],
+      "useCancellationToken": true,
+      "generateModelValidationAttributes": false,
+      "generateOptionalParameters": true,
+      "namespace": "MedicalAppointments.Api.Controllers.Generated.Usuarios",
+      "additionalNamespaceUsages": [
+        "MedicalAppointments.Application.DTOs"
+      ],
+      "output": "src/MedicalAppointments.Api/Generated/UsuariosControllerBase.generated.cs"
+    }
+  }
+}
